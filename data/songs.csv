@@ -1,19 +1,37 @@
-id,title,artist,genre,mood,energy,tempo_bpm,valence,danceability,acousticness,instrumentalness
-1,Sunrise City,Neon Echo,pop,happy,0.82,118,0.84,0.79,0.18,0.02
-2,Midnight Coding,LoRoom,lofi,chill,0.42,78,0.56,0.62,0.71,0.85
-3,Storm Runner,Voltline,rock,intense,0.91,152,0.48,0.66,0.10,0.05
-4,Library Rain,Paper Lanterns,lofi,chill,0.35,72,0.60,0.58,0.86,0.88
-5,Gym Hero,Max Pulse,pop,intense,0.93,132,0.77,0.88,0.05,0.03
-6,Spacewalk Thoughts,Orbit Bloom,ambient,chill,0.28,60,0.65,0.41,0.92,0.92
-7,Coffee Shop Stories,Slow Stereo,jazz,relaxed,0.37,90,0.71,0.54,0.89,0.80
-8,Night Drive Loop,Neon Echo,synthwave,moody,0.75,110,0.49,0.73,0.22,0.70
-9,Focus Flow,LoRoom,lofi,focused,0.40,80,0.59,0.60,0.78,0.90
-10,Rooftop Lights,Indigo Parade,indie pop,happy,0.76,124,0.81,0.82,0.35,0.06
-11,Concrete Bloom,Kayo Vane,hip-hop,confident,0.72,95,0.62,0.85,0.14,0.00
-12,Neon Overdrive,Pulsewidth,electronic,energetic,0.95,128,0.70,0.90,0.03,0.75
-13,Letters Unsent,Clara Voss,classical,melancholy,0.24,68,0.30,0.22,0.95,0.95
-14,Velvet Hours,Amber Sol,r&b,romantic,0.55,102,0.68,0.74,0.33,0.04
-15,Paper Boats,Ferns & Foxes,folk,relaxed,0.38,88,0.52,0.48,0.90,0.10
-16,Iron Verdict,Blacklight Choir,metal,intense,0.97,160,0.35,0.55,0.04,0.05
-17,Sidewalk Groove,The Funk Cadets,funk,happy,0.78,116,0.83,0.91,0.12,0.08
-18,Fading Signal,Halcyon Drift,synthwave,sad,0.44,100,0.28,0.60,0.25,0.65
+id,title,artist,genre,mood,energy,tempo_bpm,valence,danceability,acousticness,instrumentalness,popularity,release_decade,mood_tag,explicit,artist_type
+1,Sunrise City,Neon Echo,pop,happy,0.82,118,0.84,0.79,0.18,0.02,88,2020,euphoric,no,band
+2,Midnight Coding,LoRoom,lofi,chill,0.42,78,0.56,0.62,0.71,0.85,72,2020,relaxing,no,solo
+3,Storm Runner,Voltline,rock,intense,0.91,152,0.48,0.66,0.10,0.05,65,2010,aggressive,no,band
+4,Library Rain,Paper Lanterns,lofi,chill,0.35,72,0.60,0.58,0.86,0.88,60,2020,relaxing,no,band
+5,Gym Hero,Max Pulse,pop,intense,0.93,132,0.77,0.88,0.05,0.03,80,2020,euphoric,yes,solo
+6,Spacewalk Thoughts,Orbit Bloom,ambient,chill,0.28,60,0.65,0.41,0.92,0.92,45,2010,relaxing,no,band
+7,Coffee Shop Stories,Slow Stereo,jazz,relaxed,0.37,90,0.71,0.54,0.89,0.80,58,2010,nostalgic,no,band
+8,Night Drive Loop,Neon Echo,synthwave,moody,0.75,110,0.49,0.73,0.22,0.70,70,1980,nostalgic,no,band
+9,Focus Flow,LoRoom,lofi,focused,0.40,80,0.59,0.60,0.78,0.90,68,2020,relaxing,no,solo
+10,Rooftop Lights,Indigo Parade,indie pop,happy,0.76,124,0.81,0.82,0.35,0.06,82,2020,euphoric,no,band
+11,Concrete Bloom,Kayo Vane,hip-hop,confident,0.72,95,0.62,0.85,0.14,0.00,76,2020,aggressive,yes,solo
+12,Neon Overdrive,Pulsewidth,electronic,energetic,0.95,128,0.70,0.90,0.03,0.75,74,2010,euphoric,no,solo
+13,Letters Unsent,Clara Voss,classical,melancholy,0.24,68,0.30,0.22,0.95,0.95,40,1990,nostalgic,no,solo
+14,Velvet Hours,Amber Sol,r&b,romantic,0.55,102,0.68,0.74,0.33,0.04,63,2010,relaxing,no,solo
+15,Paper Boats,Ferns & Foxes,folk,relaxed,0.38,88,0.52,0.48,0.90,0.10,55,2000,nostalgic,no,band
+16,Iron Verdict,Blacklight Choir,metal,intense,0.97,160,0.35,0.55,0.04,0.05,62,2010,aggressive,yes,band
+17,Sidewalk Groove,The Funk Cadets,funk,happy,0.78,116,0.83,0.91,0.12,0.08,71,1990,euphoric,no,band
+18,Fading Signal,Halcyon Drift,synthwave,sad,0.44,100,0.28,0.60,0.25,0.65,57,1980,nostalgic,no,band
+19,Golden Hour Haze,Sunset Motel,indie pop,relaxed,0.58,108,0.72,0.68,0.44,0.05,66,2010,relaxing,no,band
+20,Brass Alley Nights,Brass Cadence,jazz,confident,0.61,112,0.66,0.70,0.55,0.20,59,2000,euphoric,no,band
+21,Canyon Echo,Ridgeway,folk,happy,0.52,102,0.74,0.55,0.78,0.12,61,2000,nostalgic,no,solo
+22,Undertow,Mino Grey,r&b,moody,0.49,96,0.42,0.66,0.40,0.06,64,2010,nostalgic,no,solo
+23,Static Bloom,Circuit Fauna,electronic,chill,0.54,118,0.58,0.72,0.20,0.60,69,2010,relaxing,no,band
+24,Iron Prayer,Ash Meridian,metal,intense,0.95,155,0.30,0.52,0.06,0.08,58,2010,aggressive,yes,solo
+25,Slow Fire,Kayo Vane,hip-hop,confident,0.66,92,0.60,0.82,0.18,0.02,73,2020,aggressive,yes,solo
+26,Amber Fields,Ferns & Foxes,folk,relaxed,0.44,90,0.56,0.50,0.88,0.15,54,2000,nostalgic,no,band
+27,Marble Halls,Clara Voss,classical,melancholy,0.30,72,0.34,0.26,0.93,0.94,42,1990,nostalgic,no,solo
+28,Neon Rain,Halcyon Drift,synthwave,moody,0.63,106,0.45,0.68,0.28,0.62,67,1980,nostalgic,no,band
+29,Cardio Kings,Max Pulse,pop,energetic,0.90,130,0.80,0.90,0.06,0.04,79,2020,euphoric,no,solo
+30,Dusk Patrol,Orbit Bloom,ambient,focused,0.33,66,0.55,0.44,0.90,0.90,46,2010,relaxing,no,band
+31,Velvet Riot,The Funk Cadets,funk,confident,0.70,114,0.75,0.88,0.14,0.05,70,1990,euphoric,no,band
+32,Hollow Tide,Amber Sol,r&b,romantic,0.57,100,0.64,0.72,0.36,0.05,62,2010,relaxing,no,solo
+33,Granite Sky,Voltline,rock,moody,0.68,120,0.50,0.64,0.22,0.10,60,2010,aggressive,no,band
+34,Paper Planes,Indigo Parade,indie pop,happy,0.72,122,0.79,0.80,0.30,0.05,78,2020,euphoric,no,band
+35,Quiet Machines,LoRoom,lofi,focused,0.46,84,0.52,0.62,0.74,0.82,65,2020,relaxing,no,solo
+36,Coastline Drift,Slow Stereo,jazz,relaxed,0.41,86,0.68,0.56,0.85,0.30,56,2010,nostalgic,no,band
