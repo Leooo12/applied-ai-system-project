@@ -1,7 +1,10 @@
 {
   "summary": "12 of 12 reliability cases passed.",
   "passed": 12,
+  "failed": 0,
   "total": 12,
+  "pass_rate": 1.0,
+  "average_confidence": 0.7143,
   "results": [
     {
       "test_id": "TC01",
