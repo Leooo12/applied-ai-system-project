@@ -142,3 +142,77 @@ def test_output_contains_scores_and_deterministic_reasons():
     # Reasons come straight from the recommender's per-feature breakdown.
     assert "match" in top["reasons"].lower()
     assert "Genre match" in top["reasons"] or "Mood match" in top["reasons"]
+
+
+# ---------------------------------------------------------------------------
+# Agentic workflow: generate -> verify -> repair(once) -> fallback
+# ---------------------------------------------------------------------------
+from src.verifier import Verifier
+
+
+class _StubExplainer:
+    """Explanation generator that returns queued dicts, recording feedback."""
+
+    def __init__(self, outputs):
+        self._outputs = list(outputs)
+        self.feedback_calls = []  # feedback passed on each call (None on first)
+
+    def generate(self, context, feedback=None):
+        self.feedback_calls.append(feedback)
+        index = min(len(self.feedback_calls) - 1, len(self._outputs) - 1)
+        return self._outputs[index]
+
+
+def _expl(title, artist, explanation="A pop, happy track."):
+    return {
+        "summary": "Here are your picks.",
+        "song_explanations": [{"title": title, "artist": artist, "explanation": explanation}],
+    }
+
+
+def _orch_with_explainer(stub):
+    # Parser gets a confident pop reply; retrieval uses the real catalog.
+    return VibeMatchOrchestrator(
+        FakeAIClient(POP_REPLY),
+        explanation_generator=stub,
+        verifier=Verifier(),
+    )
+
+
+def test_valid_explanation_is_used_without_repair():
+    stub = _StubExplainer([_expl("Sunrise City", "Neon Echo")])
+    ctx = _orch_with_explainer(stub).recommend_and_explain("high energy happy pop")
+
+    assert ctx.explanation_method == "generated"
+    assert len(stub.feedback_calls) == 1          # generated once, never repaired
+    assert ctx.explanation["song_explanations"][0]["title"] == "Sunrise City"
+
+
+def test_invalid_explanation_is_repaired_once():
+    stub = _StubExplainer([
+        _expl("Totally Made Up Song", "Ghost"),   # invalid -> triggers repair
+        _expl("Sunrise City", "Neon Echo"),       # repaired -> valid
+    ])
+    ctx = _orch_with_explainer(stub).recommend_and_explain("high energy happy pop")
+
+    assert ctx.explanation_method == "repaired"
+    assert len(stub.feedback_calls) == 2          # exactly one repair attempt
+    assert stub.feedback_calls[1] is not None     # repair received feedback
+    assert ctx.explanation["song_explanations"][0]["title"] == "Sunrise City"
+
+
+def test_failed_repair_falls_back_to_deterministic():
+    stub = _StubExplainer([
+        _expl("Totally Made Up Song", "Ghost"),   # invalid
+        _expl("Still Not Real", "Ghost"),         # still invalid after repair
+    ])
+    ctx = _orch_with_explainer(stub).recommend_and_explain("high energy happy pop")
+
+    assert ctx.explanation_method == "fallback"
+    assert len(stub.feedback_calls) == 2          # no more than one repair attempt
+    # Fallback is built from the REAL retrieved songs + their scoring reasons.
+    titles = [e["title"] for e in ctx.explanation["song_explanations"]]
+    assert "Sunrise City" in titles
+    assert "Totally Made Up Song" not in titles
+    assert any("Genre match" in e["explanation"] for e in ctx.explanation["song_explanations"])
+    assert any("could not be verified" in w for w in ctx.explanation["warnings"])

@@ -76,13 +76,16 @@ class ExplanationGenerator:
     def __init__(self, ai_client: AIClient):
         self._ai = ai_client
 
-    def generate(self, context) -> dict:
+    def generate(self, context, feedback=None) -> dict:
         """
         Build the structured explanation for a `RecommendationContext`-like object.
 
         Accepts anything exposing `original_request`, `parsed_preferences`,
         `recommendations`, `confidence`, and `warnings` (duck-typed on purpose, so
         this module never imports the orchestrator).
+
+        `feedback` (optional) is correction guidance from the verifier, included in
+        the evidence so a repair attempt can fix the flagged problems.
         """
         warnings = list(getattr(context, "warnings", []) or [])
         confidence = getattr(context, "confidence", 0.0)
@@ -98,6 +101,8 @@ class ExplanationGenerator:
             }
 
         evidence = self._build_evidence(context, recommendations)
+        if feedback:
+            evidence["correction_feedback"] = feedback
 
         ai_summary: Optional[str] = None
         ai_explanations: dict = {}

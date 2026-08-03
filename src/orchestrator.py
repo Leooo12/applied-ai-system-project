@@ -24,6 +24,7 @@ Two design rules make this genuine retrieval augmentation:
   eventual AI answer is grounded in retrieved data, not invented alongside it.
 """
 
+import logging
 import os
 from dataclasses import dataclass, field
 from typing import Callable, List, Optional
@@ -33,6 +34,9 @@ from src.explanation_generator import ExplanationGenerator
 from src.guardrails import Guardrails
 from src.preference_parser import ParsedPreferences, PreferenceParser
 from src.recommender import load_songs, recommend_songs
+from src.verifier import Verifier, VerificationResult
+
+logger = logging.getLogger(__name__)
 
 
 DEFAULT_CSV_PATH = "data/songs.csv"
@@ -78,6 +82,9 @@ class RecommendationContext:
     # Populated by `recommend_and_explain` with the grounded AI explanation
     # ({"summary", "song_explanations", "confidence", "warnings"}); None until then.
     explanation: Optional[dict] = None
+    # How the final explanation was produced: "generated", "repaired", or
+    # "fallback" (deterministic). None until `recommend_and_explain` runs.
+    explanation_method: Optional[str] = None
 
 
 def _default_load(csv_path: str) -> List[dict]:
@@ -107,6 +114,7 @@ class VibeMatchOrchestrator:
         guardrails: Optional[Guardrails] = None,
         parser: Optional[PreferenceParser] = None,
         explanation_generator: Optional[ExplanationGenerator] = None,
+        verifier: Optional[Verifier] = None,
         recommend_fn: Callable = recommend_songs,
         load_fn: Callable[[str], List[dict]] = _default_load,
         csv_path: str = DEFAULT_CSV_PATH,
@@ -115,6 +123,7 @@ class VibeMatchOrchestrator:
         self._guardrails = guardrails or Guardrails()
         self._parser = parser or PreferenceParser(ai_client)
         self._explainer = explanation_generator or ExplanationGenerator(ai_client)
+        self._verifier = verifier or Verifier()
         self._recommend_fn = recommend_fn
         self._load_fn = load_fn
         self._csv_path = csv_path
@@ -196,16 +205,86 @@ class VibeMatchOrchestrator:
 
     def recommend_and_explain(self, request: str) -> RecommendationContext:
         """
-        Full pipeline: retrieve songs, then attach a grounded AI explanation.
+        Full agentic pipeline: retrieve -> generate -> verify -> (repair once) ->
+        verify -> (deterministic fallback).
 
-        The explanation is generated ONLY from the retrieved songs in the
-        context, so the AI answer stays anchored to what the recommender found.
-        Blocked requests skip generation entirely.
+            generate explanation
+                -> verify
+                -> if valid: use it ("generated")
+                -> else: ONE AI repair, then verify
+                    -> if valid: use it ("repaired")
+                    -> else: deterministic fallback ("fallback", no AI call)
+
+        A generated/repaired answer is NEVER used unless it passed verification.
+        There is exactly one repair attempt -- no retry loop.
         """
         context = self.recommend(request)
-        if context.allowed:
-            context.explanation = self._explainer.generate(context)
+        if not context.allowed:
+            return context
+
+        # Generate, then verify.
+        explanation = self._explainer.generate(context)
+        verdict = self._verifier.verify(
+            explanation, context.recommendations, context.confidence
+        )
+        if verdict.passed:
+            logger.info("Explanation verified on first pass.")
+            context.explanation = explanation
+            context.explanation_method = "generated"
+            return context
+
+        # One -- and only one -- repair attempt.
+        logger.info(
+            "Explanation failed verification (%d issue(s)); attempting one repair.",
+            len(verdict.errors),
+        )
+        repaired = self._explainer.generate(context, feedback=_repair_feedback(verdict))
+        repaired_verdict = self._verifier.verify(
+            repaired, context.recommendations, context.confidence
+        )
+        if repaired_verdict.passed:
+            logger.info("Repair succeeded; using repaired explanation.")
+            context.explanation = repaired
+            context.explanation_method = "repaired"
+            return context
+
+        # Still invalid -> deterministic fallback, no AI involved.
+        logger.warning("Repair failed verification; using deterministic fallback.")
+        context.explanation = self._deterministic_fallback(context)
+        context.explanation_method = "fallback"
         return context
+
+    @staticmethod
+    def _deterministic_fallback(context: "RecommendationContext") -> dict:
+        """
+        Build an explanation purely from the recommender's scores and reasons --
+        no AI call. This is the guaranteed-valid answer of last resort.
+        """
+        song_explanations = [
+            {
+                "title": rec.get("title"),
+                "artist": rec.get("artist"),
+                "explanation": (
+                    f"Selected by the scoring system because: "
+                    f"{rec.get('reasons') or 'no strong matching features'}."
+                ),
+            }
+            for rec in context.recommendations
+        ]
+        warnings = list(context.warnings) + [
+            "The AI explanation could not be verified, so these deterministic "
+            "scoring reasons are shown instead."
+        ]
+        summary = (
+            f"Showing the top {len(context.recommendations)} songs the scoring "
+            f"system matched to your request, with the reason each was chosen."
+        )
+        return {
+            "summary": summary,
+            "song_explanations": song_explanations,
+            "confidence": context.confidence,
+            "warnings": warnings,
+        }
 
 
 def _preferences_to_dict(prefs: ParsedPreferences) -> dict:
@@ -215,3 +294,23 @@ def _preferences_to_dict(prefs: ParsedPreferences) -> dict:
         for name in SCORING_FIELDS
         if getattr(prefs, name) is not None
     }
+
+
+def _repair_feedback(verdict: VerificationResult) -> str:
+    """Turn verification failures into concrete correction guidance for the AI."""
+    parts = ["Your previous answer failed grounding checks."]
+    if verdict.unsupported_titles:
+        parts.append(
+            "Do not mention songs outside the provided list; remove: "
+            + ", ".join(str(t) for t in verdict.unsupported_titles)
+            + "."
+        )
+    if verdict.unsupported_claims:
+        parts.append("Fix these unsupported claims: " + " ".join(verdict.unsupported_claims))
+    for error in verdict.errors:
+        parts.append(error)
+    parts.append(
+        "Use ONLY the supplied songs, artists, and attributes, and give every "
+        "song a reason."
+    )
+    return " ".join(parts)
