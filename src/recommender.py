@@ -1,6 +1,6 @@
 import csv
 from typing import List, Dict, Tuple, Optional
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 
 @dataclass
 class Song:
@@ -39,22 +39,71 @@ class UserProfile:
 
 class Recommender:
     """
-    OOP implementation of the recommendation logic.
-    Required by tests/test_recommender.py
+    Object-oriented wrapper around the module-level scoring functions.
+
+    It holds a catalog of `Song` objects and offers a `UserProfile`-based API,
+    but it does NOT implement its own ranking logic. Both methods delegate to
+    the same `score_song()` / `recommend_songs()` functions that src/main.py
+    uses, so there is only ONE recommendation algorithm in this project.
     """
     def __init__(self, songs: List[Song]):
         """Initialize the recommender with a catalog of songs."""
         self.songs = songs
 
-    def recommend(self, user: UserProfile, k: int = 5) -> List[Song]:
-        """Return the top-k recommended songs for a user."""
-        # TODO: Implement recommendation logic
-        return self.songs[:k]
+    @staticmethod
+    def _user_to_prefs(user: UserProfile) -> Dict:
+        """
+        Translate a `UserProfile` into the plain-dict preferences that
+        `score_song()` / `recommend_songs()` expect.
 
-    def explain_recommendation(self, user: UserProfile, song: Song) -> str:
-        """Return a human-readable reason why a song was recommended."""
-        # TODO: Implement explanation logic
-        return "Explanation placeholder"
+        `likes_acoustic` is a boolean, so it is expressed as a target
+        `acousticness` (1.0 = wants acoustic, 0.0 = wants non-acoustic) and then
+        scored by the same closeness rule as every other numerical feature.
+        """
+        return {
+            "genre": user.favorite_genre,
+            "mood": user.favorite_mood,
+            "energy": user.target_energy,
+            "acousticness": 1.0 if user.likes_acoustic else 0.0,
+        }
+
+    def recommend(
+        self,
+        user: UserProfile,
+        k: int = 5,
+        diversity: bool = True,
+        strategy=None,
+    ) -> List[Song]:
+        """
+        Return the top-k recommended `Song` objects for a user.
+
+        Delegates to `recommend_songs()` (the single source of truth for
+        ranking) and maps the ranked rows back to the original `Song` objects,
+        preserving the diversity pass and scoring-strategy selection.
+        """
+        prefs = self._user_to_prefs(user)
+        catalog = [asdict(song) for song in self.songs]
+        ranked = recommend_songs(
+            prefs, catalog, k=k, diversity=diversity, strategy=strategy
+        )
+        by_id = {song.id: song for song in self.songs}
+        return [by_id[row["id"]] for row, _score, _reasons in ranked]
+
+    def explain_recommendation(
+        self, user: UserProfile, song: Song, strategy=None
+    ) -> str:
+        """
+        Return the real per-feature scoring reasons for a single song.
+
+        Uses `score_song()` -- the same function that produces the reasons shown
+        by src/main.py -- instead of any placeholder text. Falls back to a clear
+        message when the song matched none of the user's preferences.
+        """
+        prefs = self._user_to_prefs(user)
+        _score, reasons = score_song(prefs, asdict(song), strategy=strategy)
+        if not reasons:
+            return "No strong matches for this profile"
+        return ", ".join(reasons)
 
 def load_songs(csv_path: str) -> List[Dict]:
     """
