@@ -15,6 +15,10 @@ The project began as a small, deterministic content-based recommender (Module
 with guardrails, structured logging, automated verification, and a reproducible
 offline evaluation suite.
 
+For the full responsible-AI writeup -- intended use, limitations and biases,
+misuse prevention, and reliability-testing reflections -- see
+[`model_card.md`](model_card.md).
+
 ---
 
 ## Original Project
