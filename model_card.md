@@ -3,7 +3,7 @@
 ## System Name
 
 **VibeMatch AI**, built on top of the original **VibeMatch 1.0** deterministic
-scoring engine (Module 1-3, the *Music Recommender Simulation*). "VibeMatch"
+scoring engine (Module 4, the *Music Recommender Simulation*). "VibeMatch"
 because it matches songs to the "vibe" a listener describes — style, mood, and
 energy — and "AI" marks the addition of natural-language understanding and
 AI-generated explanations on top of the unchanged scoring core.
@@ -68,7 +68,7 @@ Think of it as two layers working together, not one AI system:
 
 The scoring formula itself, including its four selectable strategies
 (Balanced, Genre-First, Mood-First, Energy-Focused) and its diversity-aware
-ranking pass, is unchanged from the original Module 1-3 project.
+ranking pass, is unchanged from the original Module 4 project.
 
 ---
 

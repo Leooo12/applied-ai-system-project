@@ -200,7 +200,7 @@ SCORING MODE: Balanced -- Default weighting -- no single feature dominates.
 |   3 | Rooftop Lights  | Indigo Parade   |    9.76 | - Mood match (+2.0)               |
 ...  (truncated here -- this command exercises the ORIGINAL deterministic
      recommender across multiple standard and adversarial profiles and
-     scoring strategies; full output is 278 lines. This is the "Module 1-3"
+     scoring strategies; full output is 278 lines. This is the "Module 4"
      Music Recommender Simulation baseline, unchanged by VibeMatch AI's
      AI layer.)
 
