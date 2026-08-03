@@ -236,12 +236,176 @@ def resolve_modes(argv) -> list:
     return [requested]
 
 
+# ---------------------------------------------------------------------------
+# Interactive natural-language mode (python -m src.main --interactive)
+# ---------------------------------------------------------------------------
+QUIT_WORDS = {"quit", "exit", "q"}
+
+
+def _make_recommend_fn(strategy):
+    """Bind a scoring strategy into the recommender call the orchestrator makes."""
+    from src.recommender import recommend_songs
+
+    def _fn(prefs, songs, k=5):
+        return recommend_songs(prefs, songs, k=k, strategy=strategy)
+
+    return _fn
+
+
+def _display_context(ctx, out) -> None:
+    """Pretty-print one RecommendationContext to the user."""
+    # Blocked requests: show the friendly guardrail messages and stop.
+    if not ctx.allowed:
+        out("\nI couldn't process that request:")
+        for message in ctx.errors:
+            out(f"  - {message}")
+        return
+
+    out("\n" + "-" * 60)
+    out("Interpreted preferences:")
+    if ctx.parsed_preferences:
+        for key, value in ctx.parsed_preferences.items():
+            out(f"  {key}: {value}")
+    else:
+        out("  (none specified)")
+
+    out(f"\nConfidence: {ctx.confidence:.2f}")
+
+    explanation = ctx.explanation or {}
+    out("\nSummary:")
+    out(f"  {explanation.get('summary', '(no summary)')}")
+
+    out("\nRecommended songs:")
+    ai_by_title = {
+        e.get("title"): e.get("explanation")
+        for e in explanation.get("song_explanations", [])
+    }
+    for i, rec in enumerate(ctx.recommendations, start=1):
+        out(f"  {i}. {rec['title']} - {rec['artist']}  (score {rec['score']:.2f})")
+        out(f"       reasons: {rec['reasons']}")
+        note = ai_by_title.get(rec["title"])
+        if note:
+            out(f"       why it fits: {note}")
+
+    if not ctx.recommendations:
+        out("  (no songs matched closely enough)")
+
+    # How the explanation was produced.
+    method_label = {
+        "generated": "AI explanation (verified against the retrieved songs)",
+        "repaired": "AI explanation (repaired once, then verified)",
+        "fallback": "Deterministic fallback (AI answer could not be verified)",
+    }.get(ctx.explanation_method, "unknown")
+    out(f"\nExplanation source: {method_label}")
+
+    warnings = explanation.get("warnings") or ctx.warnings
+    if warnings:
+        out("\nWarnings:")
+        for warning in warnings:
+            out(f"  - {warning}")
+    out("-" * 60)
+
+
+def run_interactive(ai_client=None, input_fn=input, output_fn=print) -> None:
+    """
+    Run the interactive natural-language recommender loop.
+
+    `ai_client`, `input_fn`, and `output_fn` are injectable so this can be driven
+    by tests without a real network, keyboard, or terminal.
+    """
+    # Imported lazily so the classic evaluation harness (python main.py) doesn't
+    # require the full AI stack.
+    from src.ai_client import AIClientError, AnthropicAIClient, MissingAPIKeyError
+    from src.orchestrator import VibeMatchOrchestrator, CatalogNotFoundError
+    from src.preference_parser import PreferenceParseError
+    from src.recommender import STRATEGIES
+
+    # Build the production AI client unless one was injected (tests inject a fake).
+    if ai_client is None:
+        try:
+            ai_client = AnthropicAIClient()
+        except MissingAPIKeyError:
+            output_fn(
+                "\nVibeMatch needs an Anthropic API key to run in interactive mode.\n"
+                "Set it up like this:\n"
+                "  1. Copy the template:   cp .env.example .env\n"
+                "  2. Put your real key in .env under ANTHROPIC_API_KEY\n"
+                "  3. Load it into your shell:  export ANTHROPIC_API_KEY=...\n"
+                "Then run:  python -m src.main --interactive\n"
+            )
+            return
+
+    output_fn("VibeMatch AI - describe the music you want.")
+    output_fn(f"Scoring strategies: {', '.join(STRATEGIES)} (default: balanced).")
+    output_fn("Type 'quit' at any prompt to exit.\n")
+
+    while True:
+        try:
+            request = input_fn("Your music request: ").strip()
+        except (EOFError, KeyboardInterrupt):
+            output_fn("\nGoodbye!")
+            return
+
+        if request.lower() in QUIT_WORDS:
+            output_fn("Goodbye!")
+            return
+        if not request:
+            continue
+
+        try:
+            strategy = input_fn("Scoring strategy [balanced]: ").strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            output_fn("\nGoodbye!")
+            return
+        if strategy in QUIT_WORDS:
+            output_fn("Goodbye!")
+            return
+        if not strategy:
+            strategy = "balanced"
+        if strategy not in STRATEGIES:
+            output_fn(f"Unknown strategy {strategy!r}; using 'balanced'.")
+            strategy = "balanced"
+
+        orchestrator = VibeMatchOrchestrator(
+            ai_client,
+            recommend_fn=_make_recommend_fn(strategy),
+            strategy=strategy,
+        )
+
+        # Turn expected failures into friendly messages -- never raw tracebacks.
+        try:
+            ctx = orchestrator.recommend_and_explain(request)
+        except CatalogNotFoundError:
+            output_fn("Setup problem: the song catalog (data/songs.csv) is missing.\n")
+            continue
+        except PreferenceParseError:
+            output_fn("I couldn't understand that request. Please try rephrasing it.\n")
+            continue
+        except AIClientError as exc:
+            output_fn(f"The AI service is unavailable right now ({exc}). Please try again.\n")
+            continue
+
+        _display_context(ctx, output_fn)
+        output_fn("")
+
+
+def _wants_interactive(argv) -> bool:
+    return any(arg in ("--interactive", "-i") for arg in argv[1:])
+
+
 def main() -> None:
     # Set up structured logging. The level is user-controllable via the
     # VIBEMATCH_LOG_LEVEL environment variable (defaults to INFO).
     configure_logging()
     logger = get_logger("vibematch.main")
 
+    # Interactive natural-language mode.
+    if _wants_interactive(sys.argv):
+        log_event(logger, "interactive_session_started")
+        run_interactive()
+        return
+
+    # Classic evaluation harness (preserved unchanged).
     songs = load_songs("data/songs.csv")
     print(f"Loaded songs: {len(songs)}")
     log_event(logger, "songs_loaded", song_count=len(songs))
