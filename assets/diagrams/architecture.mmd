@@ -18,15 +18,15 @@ flowchart TD
     SV["Structured validation<br/>(ranges, conflicts, coverage)"]:::det
     CSV[("data/songs.csv")]:::data
     REC["Deterministic recommender<br/>src/recommender.py"]:::det
-    STRAT["Scoring strategy<br/>balanced / genre_first / mood_first / energy_focused"]:::det
+    STRAT["Scoring strategy + diversity re-ranking<br/>balanced / genre_first / mood_first / energy_focused"]:::det
     CAND["Retrieved candidate songs<br/>(scores + reasons)"]:::det
-    EXPL["AI explanation generator<br/>src/explanation_generator.py"]:::llm
+    EXPL["Grounded AI explanation generator<br/>src/explanation_generator.py<br/>(uses only retrieved candidates as evidence)"]:::llm
     VER{"Output verifier<br/>src/verifier.py"}:::det
     REPAIR["One repair attempt<br/>(AI re-generation with feedback)"]:::llm
     FALL["Deterministic fallback<br/>(built from scores + reasons, no AI)"]:::det
     RESP(["Final response"]):::det
     LOG[/"Structured logging<br/>src/app_logging.py"/]:::det
-    EVAL{{"Automated evaluator<br/>src/evaluator.py"}}:::test
+    EVAL{{"Automated tests + evaluator<br/>tests/ , src/evaluator.py"}}:::test
     HUMAN(["Human clarification / review"]):::human
 
     %% ================= Flow =================
