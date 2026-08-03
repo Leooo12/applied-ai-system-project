@@ -23,6 +23,48 @@ that shows each pick's rank, title, artist, score, and the reasons it was chosen
 
 ---
 
+## Architecture Overview
+
+VibeMatch AI wraps the deterministic recommender in a natural-language,
+retrieval-augmented pipeline. The full data flow -- from user input through
+guardrails, parsing, retrieval, explanation, and verification -- is diagrammed in
+[`assets/diagrams/architecture.mmd`](assets/diagrams/architecture.mmd) (a
+[Mermaid](https://mermaid.js.org/) flowchart; open it in any Mermaid-compatible
+viewer, or paste it into the [Mermaid Live Editor](https://mermaid.live/)).
+
+Five things to understand about how it works:
+
+- **The AI interprets the request, nothing else.** A user's free-text request
+  ("calm instrumental music for late-night coding") is understood by an AI model
+  ([`src/preference_parser.py`](src/preference_parser.py)) and turned into
+  structured preferences (genre, mood, energy, …). The AI's only job is language
+  understanding.
+- **The Python recommender controls ranking.** Structured preferences are handed
+  to the deterministic scoring engine in
+  [`src/recommender.py`](src/recommender.py), which ranks the real catalog in
+  [`data/songs.csv`](data/songs.csv) using a selected scoring strategy. The AI
+  never sees or influences song ordering or scores.
+- **Retrieval grounds the generated explanation.** The songs the recommender
+  actually retrieved -- with their attributes, scores, and reasons -- are the
+  *only* evidence passed to the AI explanation step
+  ([`src/explanation_generator.py`](src/explanation_generator.py)). This is what
+  makes the explanation retrieval-augmented rather than freely generated: the AI
+  can only describe what was retrieved, never invent a song outside that list.
+- **Verification prevents unsupported claims.** Every generated explanation is
+  independently checked by [`src/verifier.py`](src/verifier.py) against the
+  retrieved songs -- titles, artists, attributes, and reasons must all match. A
+  failed check triggers exactly one AI repair attempt; if that also fails
+  verification, the system falls back to a deterministic explanation built
+  directly from the recommender's own scores and reasons, with no further AI
+  calls.
+- **Human clarification is used when confidence is low.** When the guardrails or
+  parser flag a request as unsafe, off-topic, or too vague to parse confidently,
+  the system asks for clarification instead of guessing -- surfaced back to the
+  user (via the interactive CLI) rather than silently producing a low-quality
+  recommendation.
+
+---
+
 ## How The System Works
 
 ### The Recommendation Approach
