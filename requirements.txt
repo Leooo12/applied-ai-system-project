@@ -1,4 +1,3 @@
 anthropic
-pandas
 pytest
-streamlit
+tabulate
