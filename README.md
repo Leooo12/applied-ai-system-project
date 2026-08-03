@@ -121,34 +121,76 @@ Mood, genre, and energy now carry equal top weight so no single feature dominate
 
 ### Setup
 
-1. Create a virtual environment (optional but recommended):
+These steps take you from a fresh clone to a fully working install.
+
+1. Clone the repository and enter it:
+
+   ```bash
+   git clone https://github.com/Leooo12/applied-ai-system-project.git
+   cd applied-ai-system-project
+   ```
+
+2. Create a virtual environment:
 
    ```bash
    python -m venv .venv
-   source .venv/bin/activate      # Mac or Linux
-   .venv\Scripts\activate         # Windows
+   ```
 
-2. Install dependencies
+3. Activate it:
+
+   ```bash
+   source .venv/bin/activate      # Mac or Linux
+   ```
+
+   ```bash
+   .venv\Scripts\activate         # Windows
+   ```
+
+4. Install dependencies:
+
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+5. Set up your environment variables:
+
+   ```bash
+   cp .env.example .env
+   ```
+
+   Then open `.env` and fill in your real `ANTHROPIC_API_KEY` (get one from
+   [console.anthropic.com](https://console.anthropic.com/)). `.env` is
+   git-ignored, so your key is never committed.
+
+### Running Tests
+
+Run the full test suite (offline -- every AI-dependent test uses a fake client,
+so no API key or network access is required):
 
 ```bash
-pip install -r requirements.txt
+python -m pytest -v
 ```
 
-3. Run the app:
+### Running the App
+
+Run the classic scoring-strategy evaluation harness:
 
 ```bash
 python -m src.main
 ```
 
-### Running Tests
-
-Run the starter tests with:
+Run the interactive natural-language recommender (requires a real
+`ANTHROPIC_API_KEY` in `.env`):
 
 ```bash
-pytest
+python -m src.main --interactive
 ```
 
-You can add more tests in `tests/test_recommender.py`.
+Run the deterministic reliability evaluation (offline, no API key needed):
+
+```bash
+python -m src.evaluator
+```
 
 ---
 
