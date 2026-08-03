@@ -29,6 +29,7 @@ from dataclasses import dataclass, field
 from typing import Callable, List, Optional
 
 from src.ai_client import AIClient
+from src.explanation_generator import ExplanationGenerator
 from src.guardrails import Guardrails
 from src.preference_parser import ParsedPreferences, PreferenceParser
 from src.recommender import load_songs, recommend_songs
@@ -74,6 +75,9 @@ class RecommendationContext:
     errors: List[str] = field(default_factory=list)
     needs_clarification: bool = False
     allowed: bool = True
+    # Populated by `recommend_and_explain` with the grounded AI explanation
+    # ({"summary", "song_explanations", "confidence", "warnings"}); None until then.
+    explanation: Optional[dict] = None
 
 
 def _default_load(csv_path: str) -> List[dict]:
@@ -102,6 +106,7 @@ class VibeMatchOrchestrator:
         ai_client: AIClient,
         guardrails: Optional[Guardrails] = None,
         parser: Optional[PreferenceParser] = None,
+        explanation_generator: Optional[ExplanationGenerator] = None,
         recommend_fn: Callable = recommend_songs,
         load_fn: Callable[[str], List[dict]] = _default_load,
         csv_path: str = DEFAULT_CSV_PATH,
@@ -109,6 +114,7 @@ class VibeMatchOrchestrator:
     ):
         self._guardrails = guardrails or Guardrails()
         self._parser = parser or PreferenceParser(ai_client)
+        self._explainer = explanation_generator or ExplanationGenerator(ai_client)
         self._recommend_fn = recommend_fn
         self._load_fn = load_fn
         self._csv_path = csv_path
@@ -187,6 +193,19 @@ class VibeMatchOrchestrator:
             needs_clarification=needs_clarification,
             allowed=True,
         )
+
+    def recommend_and_explain(self, request: str) -> RecommendationContext:
+        """
+        Full pipeline: retrieve songs, then attach a grounded AI explanation.
+
+        The explanation is generated ONLY from the retrieved songs in the
+        context, so the AI answer stays anchored to what the recommender found.
+        Blocked requests skip generation entirely.
+        """
+        context = self.recommend(request)
+        if context.allowed:
+            context.explanation = self._explainer.generate(context)
+        return context
 
 
 def _preferences_to_dict(prefs: ParsedPreferences) -> dict:
