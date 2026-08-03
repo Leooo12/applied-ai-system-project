@@ -1,5 +1,7 @@
 # VibeMatch AI
 
+[View this project on GitHub](https://github.com/Leooo12/applied-ai-system-project)
+
 ## Project Summary
 
 VibeMatch AI is a natural-language music recommender that combines a
