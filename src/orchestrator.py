@@ -30,13 +30,16 @@ from dataclasses import dataclass, field
 from typing import Callable, List, Optional
 
 from src.ai_client import AIClient
+from src.app_logging import get_logger, log_event, safe_error_message
 from src.explanation_generator import ExplanationGenerator
 from src.guardrails import Guardrails
-from src.preference_parser import ParsedPreferences, PreferenceParser
+from src.preference_parser import ParsedPreferences, PreferenceParser, PreferenceParseError
 from src.recommender import load_songs, recommend_songs
 from src.verifier import Verifier, VerificationResult
 
-logger = logging.getLogger(__name__)
+logger = get_logger("vibematch.orchestrator")
+
+DEFAULT_STRATEGY = "balanced"
 
 
 DEFAULT_CSV_PATH = "data/songs.csv"
@@ -119,6 +122,7 @@ class VibeMatchOrchestrator:
         load_fn: Callable[[str], List[dict]] = _default_load,
         csv_path: str = DEFAULT_CSV_PATH,
         top_k: int = DEFAULT_TOP_K,
+        strategy: str = DEFAULT_STRATEGY,
     ):
         self._guardrails = guardrails or Guardrails()
         self._parser = parser or PreferenceParser(ai_client)
@@ -128,12 +132,26 @@ class VibeMatchOrchestrator:
         self._load_fn = load_fn
         self._csv_path = csv_path
         self._top_k = top_k
+        # Label only -- the recommender uses its balanced default; recorded so
+        # logs report which ranking philosophy produced the results.
+        self._strategy = strategy
 
     def recommend(self, request: str) -> RecommendationContext:
         """Run the full guardrail -> parse -> retrieve pipeline for one request."""
+        # Log the request by LENGTH only -- never the raw text (avoids storing
+        # unnecessary personal information).
+        log_event(logger, "request_received", request_length=len(request or ""))
+
         # 1. Guard the raw text. If it's blocked, stop BEFORE parsing/retrieval.
         input_check = self._guardrails.check_input(request)
+        log_event(
+            logger, "guardrail_input",
+            allowed=input_check.allowed,
+            error_count=len(input_check.errors),
+            warning_count=len(input_check.warnings),
+        )
         if not input_check.allowed:
+            log_event(logger, "recommendation_blocked", stage="input_guardrail")
             return RecommendationContext(
                 original_request=request or "",
                 parsed_preferences={},
@@ -148,10 +166,22 @@ class VibeMatchOrchestrator:
         warnings: List[str] = list(input_check.warnings)
 
         # 2. Parse natural language into structured preferences (AI step).
-        parsed = self._parser.parse(request)
+        try:
+            parsed = self._parser.parse(request)
+        except PreferenceParseError as exc:
+            log_event(logger, "parsing_failed", level=logging.ERROR,
+                      reason=safe_error_message(exc))
+            raise
+        log_event(logger, "parsing_succeeded", parser_confidence=parsed.confidence)
 
         # 3. Guard the parsed preferences (ranges, conflicts, coverage).
         pref_check = self._guardrails.check_preferences(parsed)
+        log_event(
+            logger, "guardrail_preferences",
+            allowed=pref_check.allowed,
+            error_count=len(pref_check.errors),
+            warning_count=len(pref_check.warnings),
+        )
         warnings.extend(pref_check.warnings)
         needs_clarification = pref_check.needs_clarification or parsed.needs_clarification
         if needs_clarification:
@@ -177,6 +207,7 @@ class VibeMatchOrchestrator:
 
         # 5. Load the catalog (controlled error if the file is missing).
         songs = self._load_fn(self._csv_path)
+        log_event(logger, "songs_loaded", song_count=len(songs))
 
         # 6. Retrieve + rank -- deterministically, via the recommender. The AI
         #    has no say in ordering or scores.
@@ -191,6 +222,11 @@ class VibeMatchOrchestrator:
             }
             for song, score, reasons in ranked
         ]
+        log_event(
+            logger, "songs_retrieved",
+            candidate_count=len(recommendations),
+            strategy=self._strategy,
+        )
 
         return RecommendationContext(
             original_request=request,
@@ -218,41 +254,67 @@ class VibeMatchOrchestrator:
         A generated/repaired answer is NEVER used unless it passed verification.
         There is exactly one repair attempt -- no retry loop.
         """
-        context = self.recommend(request)
-        if not context.allowed:
-            return context
+        try:
+            context = self.recommend(request)
+            if not context.allowed:
+                log_event(logger, "recommendation_completed",
+                          allowed=False, fallback_used=False, repair_attempted=False)
+                return context
 
-        # Generate, then verify.
-        explanation = self._explainer.generate(context)
-        verdict = self._verifier.verify(
-            explanation, context.recommendations, context.confidence
-        )
-        if verdict.passed:
-            logger.info("Explanation verified on first pass.")
-            context.explanation = explanation
-            context.explanation_method = "generated"
-            return context
+            repair_attempted = False
 
-        # One -- and only one -- repair attempt.
-        logger.info(
-            "Explanation failed verification (%d issue(s)); attempting one repair.",
-            len(verdict.errors),
-        )
-        repaired = self._explainer.generate(context, feedback=_repair_feedback(verdict))
-        repaired_verdict = self._verifier.verify(
-            repaired, context.recommendations, context.confidence
-        )
-        if repaired_verdict.passed:
-            logger.info("Repair succeeded; using repaired explanation.")
-            context.explanation = repaired
-            context.explanation_method = "repaired"
-            return context
+            # Generate, then verify.
+            explanation = self._explainer.generate(context)
+            log_event(logger, "explanation_generated",
+                      candidate_count=len(context.recommendations))
+            verdict = self._verifier.verify(
+                explanation, context.recommendations, context.confidence
+            )
+            log_event(logger, "verification_result",
+                      passed=verdict.passed, error_count=len(verdict.errors), attempt=1)
 
-        # Still invalid -> deterministic fallback, no AI involved.
-        logger.warning("Repair failed verification; using deterministic fallback.")
-        context.explanation = self._deterministic_fallback(context)
-        context.explanation_method = "fallback"
-        return context
+            if verdict.passed:
+                context.explanation = explanation
+                context.explanation_method = "generated"
+            else:
+                # One -- and only one -- repair attempt.
+                repair_attempted = True
+                log_event(logger, "repair_attempted", issue_count=len(verdict.errors))
+                repaired = self._explainer.generate(
+                    context, feedback=_repair_feedback(verdict)
+                )
+                repaired_verdict = self._verifier.verify(
+                    repaired, context.recommendations, context.confidence
+                )
+                log_event(logger, "verification_result",
+                          passed=repaired_verdict.passed,
+                          error_count=len(repaired_verdict.errors), attempt=2)
+
+                if repaired_verdict.passed:
+                    context.explanation = repaired
+                    context.explanation_method = "repaired"
+                else:
+                    # Still invalid -> deterministic fallback, no AI involved.
+                    log_event(logger, "fallback_used", level=logging.WARNING,
+                              reason="repair_failed_verification")
+                    context.explanation = self._deterministic_fallback(context)
+                    context.explanation_method = "fallback"
+
+            log_event(
+                logger, "recommendation_completed",
+                parser_confidence=context.confidence,
+                candidate_count=len(context.recommendations),
+                strategy=self._strategy,
+                verification_passed=(context.explanation_method != "fallback"),
+                repair_attempted=repair_attempted,
+                fallback_used=(context.explanation_method == "fallback"),
+            )
+            return context
+        except Exception as exc:
+            # Never leak secrets through an exception; log a clean message.
+            log_event(logger, "unexpected_error", level=logging.ERROR,
+                      error=safe_error_message(exc))
+            raise
 
     @staticmethod
     def _deterministic_fallback(context: "RecommendationContext") -> dict:

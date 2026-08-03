@@ -36,9 +36,11 @@ except ModuleNotFoundError:
 try:
     # Works when run from the project root: python -m src.main
     from src.recommender import load_songs, recommend_songs, STRATEGIES
+    from src.app_logging import configure_logging, get_logger, log_event
 except ModuleNotFoundError:
     # Works when run from inside the src/ folder: python main.py
     from recommender import load_songs, recommend_songs, STRATEGIES
+    from app_logging import configure_logging, get_logger, log_event
 
 
 # ---------------------------------------------------------------------------
@@ -235,11 +237,20 @@ def resolve_modes(argv) -> list:
 
 
 def main() -> None:
+    # Set up structured logging. The level is user-controllable via the
+    # VIBEMATCH_LOG_LEVEL environment variable (defaults to INFO).
+    configure_logging()
+    logger = get_logger("vibematch.main")
+
     songs = load_songs("data/songs.csv")
     print(f"Loaded songs: {len(songs)}")
+    log_event(logger, "songs_loaded", song_count=len(songs))
 
-    for mode in resolve_modes(sys.argv):
+    modes = resolve_modes(sys.argv)
+    for mode in modes:
+        log_event(logger, "evaluation_started", strategy=mode)
         run_all_profiles(songs, mode)
+    log_event(logger, "evaluation_completed", strategies_run=len(modes))
 
 
 if __name__ == "__main__":
