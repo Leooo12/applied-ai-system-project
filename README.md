@@ -749,6 +749,22 @@ suite and a 12-case reliability evaluation possible without spending a single
 dollar of API cost or depending on network access, which matters for anyone
 who has to run this project's tests in CI.
 
+## Portfolio Reflection
+
+This project shows that I approach AI engineering as more than connecting an
+application to a language model. Rather than starting over, I extended an
+earlier deterministic prototype, and deliberately kept the AI's role limited
+to language understanding and explanation while leaving ranking to the
+original, auditable scoring logic. I grounded every AI-generated explanation
+in songs actually retrieved from the catalog, rather than letting the model
+choose or invent them, and layered in guardrails, preference validation, an
+independent verifier, a bounded repair attempt, and a deterministic fallback
+so an unreliable AI response could never reach the user unchecked. I tested
+the full path -- guardrails through fallback -- with a reproducible offline
+suite, and documented the system's real limitations and biases rather than
+overselling it. Throughout, I used AI coding tools as a collaborator, but I
+reviewed, tested, and made the final implementation decisions myself.
+
 ## Future Improvements
 
 - Add a real, network-gated integration test that exercises the live
