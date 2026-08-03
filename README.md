@@ -25,7 +25,7 @@ misuse prevention, and reliability-testing reflections -- see
 
 ## Original Project
 
-The original Module 4 project was the **Music Recommender Simulation**. It
+The original Module 3 project was the **Music Recommender Simulation**. It
 loaded a structured song catalog from a CSV file, compared each song's
 attributes against a user-supplied taste profile, and ranked songs using a
 transparent, weighted scoring system -- no machine learning, no opaque model,
@@ -55,7 +55,7 @@ the sole authority on song ranking in VibeMatch AI.
 
 ## What Changed in VibeMatch AI
 
-| Layer | Module 4 | VibeMatch AI |
+| Layer | Module 3 | VibeMatch AI |
 |---|---|---|
 | Input | A hand-built `UserProfile` object | Free-text natural-language request |
 | Understanding | None -- the caller filled in the profile | An AI model parses the request into structured preferences |
@@ -337,7 +337,7 @@ deterministic `FakeAIClient`.
 
 ## Running the Original Recommender
 
-The original Module 4 evaluation harness is unchanged and still works:
+The original Module 3 evaluation harness is unchanged and still works:
 
 ```bash
 python -m src.main                 # balanced strategy (default)
