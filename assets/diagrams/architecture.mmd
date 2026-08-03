@@ -1,0 +1,70 @@
+%%{init: {"flowchart": {"htmlLabels": true}} }%%
+flowchart TD
+
+    %% ================= Legend =================
+    subgraph Legend["Legend"]
+        direction LR
+        L1["LLM-powered"]:::llm
+        L2["Deterministic Python"]:::det
+        L3[("Data source")]:::data
+        L4(["Human input / review"]):::human
+        L5{{"Testing / evaluation"}}:::test
+    end
+
+    %% ================= Main pipeline =================
+    U(["User natural-language input"]):::human
+    IG["Input guardrails<br/>src/guardrails.py"]:::det
+    PP["AI preference parser<br/>src/preference_parser.py"]:::llm
+    SV["Structured validation<br/>(ranges, conflicts, coverage)"]:::det
+    CSV[("data/songs.csv")]:::data
+    REC["Deterministic recommender<br/>src/recommender.py"]:::det
+    STRAT["Scoring strategy<br/>balanced / genre_first / mood_first / energy_focused"]:::det
+    CAND["Retrieved candidate songs<br/>(scores + reasons)"]:::det
+    EXPL["AI explanation generator<br/>src/explanation_generator.py"]:::llm
+    VER{"Output verifier<br/>src/verifier.py"}:::det
+    REPAIR["One repair attempt<br/>(AI re-generation with feedback)"]:::llm
+    FALL["Deterministic fallback<br/>(built from scores + reasons, no AI)"]:::det
+    RESP(["Final response"]):::det
+    LOG[/"Structured logging<br/>src/app_logging.py"/]:::det
+    EVAL{{"Automated evaluator<br/>src/evaluator.py"}}:::test
+    HUMAN(["Human clarification / review"]):::human
+
+    %% ================= Flow =================
+    U --> IG
+    IG -->|blocked: unsafe, off-topic, empty| HUMAN
+    IG -->|allowed| PP
+    PP --> SV
+    SV -->|low confidence / out-of-range| HUMAN
+    SV -->|valid preferences| REC
+    CSV --> REC
+    STRAT --> REC
+    REC --> CAND
+    CAND --> EXPL
+    CAND --> VER
+    EXPL --> VER
+    VER -->|passed| RESP
+    VER -->|failed| REPAIR
+    REPAIR --> VER
+    VER -->|still failed after 1 repair| FALL
+    FALL --> RESP
+    HUMAN -.->|clarified request| U
+
+    %% ================= Cross-cutting: logging =================
+    IG -.-> LOG
+    SV -.-> LOG
+    REC -.-> LOG
+    VER -.-> LOG
+    REPAIR -.-> LOG
+    FALL -.-> LOG
+    RESP -.-> LOG
+
+    %% ================= Cross-cutting: evaluation =================
+    EVAL -.->|drives the same orchestrator with a fake AI client| IG
+    LOG -.->|log events inspected per test case| EVAL
+
+    %% ================= Styles =================
+    classDef llm fill:#f5c9de,stroke:#8a3b63,color:#3a1626,stroke-width:2px;
+    classDef det fill:#cfe8ff,stroke:#1c5d99,color:#0a2540,stroke-width:2px;
+    classDef data fill:#d8f0d0,stroke:#3a7d33,color:#173a12,stroke-width:2px;
+    classDef human fill:#fff2c2,stroke:#a67c00,color:#3a2c00,stroke-width:2px;
+    classDef test fill:#e6d9ff,stroke:#5b32a3,color:#241247,stroke-width:2px;
