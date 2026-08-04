@@ -4,9 +4,9 @@ AI client abstraction for VibeMatch AI.
 This module defines a single, narrow interface -- `AIClient.generate()` -- plus
 two implementations:
 
-* `AnthropicAIClient` -- the production client. It talks to Anthropic's Claude
-  models and reads its API key and model name from environment variables, so no
-  secret is ever hardcoded.
+* `GeminiAIClient` -- the production client. It talks to Google's Gemini API
+  and reads its API key and model name from environment variables, so no secret
+  is ever hardcoded.
 * `FakeAIClient` -- a deterministic stand-in for tests. It returns predefined
   responses and never touches the network, so the rest of the system can be
   tested offline and reproducibly.
@@ -20,10 +20,12 @@ interprets that text lives in higher layers.
 import os
 from typing import Optional, Protocol, runtime_checkable
 
+from src.app_logging import safe_error_message
+
 
 # ---------------------------------------------------------------------------
 # Custom exceptions -- callers catch these instead of provider-specific errors,
-# so the rest of the app never has to import the Anthropic SDK to handle failures.
+# so the rest of the app never has to import the Gemini SDK to handle failures.
 # ---------------------------------------------------------------------------
 class AIClientError(Exception):
     """Base class for every error raised by this module."""
@@ -48,15 +50,11 @@ class TemporaryAIServiceError(AIClientError):
     """
 
 
-# The name of the environment variable holding the API key. Kept as a constant
-# so the production client and any docs/tests refer to the same string.
-API_KEY_ENV_VAR = "ANTHROPIC_API_KEY"
-MODEL_ENV_VAR = "VIBEMATCH_MODEL"
+GEMINI_API_KEY_ENV_VAR = "GEMINI_API_KEY"
+GEMINI_MODEL_ENV_VAR = "GEMINI_MODEL"
 MAX_TOKENS_ENV_VAR = "VIBEMATCH_MAX_TOKENS"
 
-# Default model when VIBEMATCH_MODEL is unset. Opus is the most capable Claude
-# model and a safe default; override it via the env var for cheaper/faster runs.
-DEFAULT_MODEL = "claude-opus-5"
+DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
 DEFAULT_MAX_TOKENS = 1024
 
 
@@ -74,15 +72,8 @@ class AIClient(Protocol):
         ...
 
 
-class AnthropicAIClient:
-    """
-    Production `AIClient` backed by Anthropic's Claude models.
-
-    The API key and model name come from environment variables -- never from
-    source code. Construction fails fast with `MissingAPIKeyError` if no key is
-    configured, so a misconfigured deployment is caught immediately rather than
-    on the first request.
-    """
+class GeminiAIClient:
+    """Production `AIClient` backed by Google's Gemini API."""
 
     def __init__(
         self,
@@ -90,70 +81,51 @@ class AnthropicAIClient:
         model: Optional[str] = None,
         max_tokens: Optional[int] = None,
     ):
-        """
-        Build the client from explicit values, falling back to environment
-        variables. Nothing here is hardcoded: `api_key` defaults to
-        `ANTHROPIC_API_KEY`, `model` to `VIBEMATCH_MODEL` (or DEFAULT_MODEL).
-        """
-        api_key = api_key or os.environ.get(API_KEY_ENV_VAR)
+        api_key = api_key or os.environ.get(GEMINI_API_KEY_ENV_VAR)
         if not api_key:
             raise MissingAPIKeyError(
-                f"No API key found. Set the {API_KEY_ENV_VAR} environment "
-                f"variable (see .env.example) before creating an AnthropicAIClient."
+                f"No API key found. Set the {GEMINI_API_KEY_ENV_VAR} environment "
+                "variable (see .env.example) before interactive mode."
             )
 
-        self._model = model or os.environ.get(MODEL_ENV_VAR) or DEFAULT_MODEL
+        self._model = model or os.environ.get(GEMINI_MODEL_ENV_VAR) or DEFAULT_GEMINI_MODEL
         self._max_tokens = max_tokens or int(
             os.environ.get(MAX_TOKENS_ENV_VAR, DEFAULT_MAX_TOKENS)
         )
 
-        # Import the SDK lazily so that this module -- and the FakeAIClient path
-        # used by tests -- can be imported without the `anthropic` package
-        # installed and without any network access.
+        # Import lazily so FakeAIClient and the offline test suite need no SDK.
         try:
-            import anthropic
+            from google import genai
         except ModuleNotFoundError as exc:  # pragma: no cover - import guard
             raise AIClientError(
-                "The 'anthropic' package is required for AnthropicAIClient. "
+                "The 'google-genai' package is required for GeminiAIClient. "
                 "Install it with: pip install -r requirements.txt"
             ) from exc
 
-        self._anthropic = anthropic
-        self._client = anthropic.Anthropic(api_key=api_key)
+        self._client = genai.Client(api_key=api_key)
 
     def generate(self, system_prompt: str, user_prompt: str) -> str:
-        """
-        Send one request to Claude and return its text reply.
-
-        Transient/service failures become `TemporaryAIServiceError`; empty or
-        refused responses become `InvalidAIResponseError`.
-        """
-        anthropic = self._anthropic
+        """Send one request to Gemini and return its text reply."""
         try:
-            response = self._client.messages.create(
+            response = self._client.models.generate_content(
                 model=self._model,
-                max_tokens=self._max_tokens,
-                system=system_prompt,
-                messages=[{"role": "user", "content": user_prompt}],
+                contents=user_prompt,
+                config={
+                    "system_instruction": system_prompt,
+                    "max_output_tokens": self._max_tokens,
+                },
             )
-        except (anthropic.APIConnectionError, anthropic.RateLimitError) as exc:
-            raise TemporaryAIServiceError(str(exc)) from exc
-        except anthropic.APIStatusError as exc:
-            # 5xx / overloaded are transient; other statuses are not retryable.
-            if exc.status_code >= 500:
-                raise TemporaryAIServiceError(str(exc)) from exc
-            raise InvalidAIResponseError(str(exc)) from exc
+        except (TimeoutError, ConnectionError, OSError) as exc:
+            raise TemporaryAIServiceError(safe_error_message(exc)) from exc
+        except Exception as exc:
+            code = getattr(exc, "code", getattr(exc, "status_code", None))
+            if code == 429 or (isinstance(code, int) and code >= 500):
+                raise TemporaryAIServiceError(safe_error_message(exc)) from exc
+            raise InvalidAIResponseError(safe_error_message(exc)) from exc
 
-        # A safety refusal comes back as a normal 200 -- treat it as unusable.
-        if getattr(response, "stop_reason", None) == "refusal":
-            raise InvalidAIResponseError("The AI model refused the request.")
-
-        text = "".join(
-            block.text for block in response.content if block.type == "text"
-        )
+        text = getattr(response, "text", "") or ""
         if not text.strip():
-            raise InvalidAIResponseError("The AI model returned an empty response.")
-
+            raise InvalidAIResponseError("The Gemini model returned no text.")
         return text
 
 
