@@ -315,7 +315,7 @@ def run_interactive(ai_client=None, input_fn=input, output_fn=print) -> None:
     """
     # Imported lazily so the classic evaluation harness (python main.py) doesn't
     # require the full AI stack.
-    from src.ai_client import AIClientError, AnthropicAIClient, MissingAPIKeyError
+    from src.ai_client import AIClientError, GeminiAIClient, MissingAPIKeyError
     from src.orchestrator import VibeMatchOrchestrator, CatalogNotFoundError
     from src.preference_parser import PreferenceParseError
     from src.recommender import STRATEGIES
@@ -323,14 +323,14 @@ def run_interactive(ai_client=None, input_fn=input, output_fn=print) -> None:
     # Build the production AI client unless one was injected (tests inject a fake).
     if ai_client is None:
         try:
-            ai_client = AnthropicAIClient()
+            ai_client = GeminiAIClient()
         except MissingAPIKeyError:
             output_fn(
-                "\nVibeMatch needs an Anthropic API key to run in interactive mode.\n"
+                "\nVibeMatch needs a Gemini API key to run in interactive mode.\n"
                 "Set it up like this:\n"
                 "  1. Copy the template:   cp .env.example .env\n"
-                "  2. Put your real key in .env under ANTHROPIC_API_KEY\n"
-                "  3. Load it into your shell:  export ANTHROPIC_API_KEY=...\n"
+                "  2. Put your real key in .env under GEMINI_API_KEY\n"
+                "  3. Load it into your shell:  export GEMINI_API_KEY=...\n"
                 "Then run:  python -m src.main --interactive\n"
             )
             return

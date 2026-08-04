@@ -64,14 +64,14 @@ def test_interactive_quit_immediately():
 
 
 def test_interactive_missing_api_key_shows_setup_message(monkeypatch):
-    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     lines, out = collector()
 
     # ai_client=None forces construction of the real client, which fails cleanly.
     run_interactive(ai_client=None, input_fn=scripted_input(["quit"]), output_fn=out)
 
     text = "\n".join(lines)
-    assert "ANTHROPIC_API_KEY" in text
+    assert "GEMINI_API_KEY" in text
     assert ".env" in text
 
 
