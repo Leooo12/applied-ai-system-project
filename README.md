@@ -514,14 +514,14 @@ python -m pytest -v
 ```
 
 ```text
-collecting ... collected 91 items
+collecting ... collected 95 items
 tests/test_guardrails.py::test_prompt_injection_reveal_api_key_is_blocked PASSED [ 32%]
 tests/test_orchestrator.py::test_failed_repair_falls_back_to_deterministic PASSED [ 67%]
 tests/test_verifier.py::test_invented_title_fails PASSED                [ 92%]
 
-============================== 91 passed in 0.14s ==============================
+============================== 95 passed in 0.17s ==============================
 
-Passed: 91
+Passed: 95
 Failed: 0
 ```
 
@@ -620,13 +620,13 @@ tests/test_main_interactive.py::test_interactive_missing_api_key_shows_setup_mes
 tests/test_orchestrator.py::test_invalid_explanation_is_repaired_once PASSED [ 65%]
 tests/test_orchestrator.py::test_failed_repair_falls_back_to_deterministic PASSED [ 67%]
 tests/test_verifier.py::test_invented_title_fails PASSED                 [ 92%]
-[additional passing tests omitted -- 91 collected, all listed in
+[additional passing tests omitted -- 95 collected, all listed in
  assets/execution_evidence.txt]
 
-============================== 91 passed in 0.11s ==============================
+============================== 95 passed in 0.17s ==============================
 ```
 
-**Passed: 91. Failed: 0.**
+**Passed: 95. Failed: 0.**
 
 ### 2. Reliability Evaluation
 
@@ -777,21 +777,21 @@ This is real reliability-evaluation case **TC11**, from
 python -m pytest -v
 ```
 
-**91 tests, all passing**, across 10 test files:
+**95 tests, all passing**, across 10 test files:
 
 | Test file | Tests |
 |---|---|
 | `test_recommender.py` | 10 |
-| `test_ai_client.py` | 6 |
+| `test_ai_client.py` | 9 |
 | `test_preference_parser.py` | 11 |
 | `test_guardrails.py` | 16 |
 | `test_orchestrator.py` | 10 |
 | `test_explanation_generator.py` | 9 |
 | `test_verifier.py` | 9 |
-| `test_logging.py` | 6 |
+| `test_logging.py` | 7 |
 | `test_main_interactive.py` | 5 |
 | `test_evaluator.py` | 9 |
-| **Total** | **91** |
+| **Total** | **95** |
 
 Every test runs offline. AI-dependent components are tested through
 `FakeAIClient`, never a real network call.
@@ -847,7 +847,7 @@ grounding its explanations in retrieved data it cannot alter, and verifying its
 output before showing it to anyone turned out to be the difference between "an
 AI feature bolted onto an app" and a system whose AI component is actually
 trustworthy. Making every AI-dependent piece testable through a shared
-`AIClient` interface was equally important in practice -- it made a 91-test
+`AIClient` interface was equally important in practice -- it made a 95-test
 suite and a 12-case reliability evaluation possible without spending a single
 dollar of API cost or depending on network access, which matters for anyone
 who has to run this project's tests in CI.

@@ -213,7 +213,7 @@ unanticipated code path cannot leak a credential through the logs.
 
 Reliability was tested two ways:
 
-1. **91 automated unit and integration tests** (`python -m pytest -v`), all
+1. **95 automated unit and integration tests** (`python -m pytest -v`), all
    running offline against a deterministic `FakeAIClient` — no network access
    or API cost. These cover the scoring engine, the AI client abstraction, the
    preference parser, the guardrails, the orchestrator's retrieval and
@@ -234,7 +234,7 @@ Reliability was tested two ways:
 ```
 python -m pytest -v
 ```
-**91 of 91 tests passed.**
+**95 of 95 tests passed.**
 
 ```
 python -m src.evaluator
