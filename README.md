@@ -314,8 +314,8 @@ applied-ai-system-project/
    cp .env.example .env
    ```
 
-   Then open `.env` and fill in your real `ANTHROPIC_API_KEY` (get one from
-   [console.anthropic.com](https://console.anthropic.com/)). `.env` is
+   Then open `.env` and fill in your real `GEMINI_API_KEY` (create one in
+   [Google AI Studio](https://aistudio.google.com/app/apikey)). `.env` is
    git-ignored, so your key is never committed.
 
 ## Environment Variables
@@ -324,8 +324,8 @@ Documented in `.env.example`, with no real secrets committed:
 
 | Variable | Required | Purpose | Default |
 |---|---|---|---|
-| `ANTHROPIC_API_KEY` | Yes, for interactive mode | Authenticates with the Claude API. The production AI client refuses to start without it. | -- |
-| `VIBEMATCH_MODEL` | No | Which Claude model to use | `claude-opus-5` |
+| `GEMINI_API_KEY` | Yes, for interactive mode | Authenticates with the Gemini API. The production AI client refuses to start without it. | -- |
+| `GEMINI_MODEL` | No | Which Gemini model to use | `gemini-2.5-flash` |
 | `VIBEMATCH_MAX_TOKENS` | No | Maximum tokens the model may return per request | `1024` |
 | `VIBEMATCH_LOG_LEVEL` | No | Python logging level (`DEBUG`, `INFO`, `WARNING`, `ERROR`) | `INFO` |
 
@@ -354,7 +354,7 @@ standard and adversarial user profiles, as a formatted table.
 python -m src.main --interactive
 ```
 
-This requires a real `ANTHROPIC_API_KEY` in `.env`. If it's missing, the
+This requires a real `GEMINI_API_KEY` in your environment. If it's missing, the
 command prints a clear setup message and exits -- it does not crash with a
 traceback. At each prompt you describe the music you want, choose a scoring
 strategy (or press Enter for `balanced`), and see the interpreted preferences,
@@ -725,7 +725,7 @@ This is real reliability-evaluation case **TC11**, from
   the original project's core guarantee -- transparent, predictable ranking --
   while adding natural language on top of it, instead of replacing it.
 - **Dependency injection everywhere an AI call happens.** `AIClient` is a
-  `Protocol`; `AnthropicAIClient` and `FakeAIClient` both satisfy it. Every
+  `Protocol`; `GeminiAIClient` and `FakeAIClient` both satisfy it. Every
   component that calls the AI (parser, explanation generator, orchestrator)
   takes an `AIClient` as a constructor argument. This is what makes the entire
   test suite and the reliability evaluator runnable offline, deterministically,
@@ -765,7 +765,7 @@ This is real reliability-evaluation case **TC11**, from
 - **The reliability evaluator uses a deterministic `FakeAIClient`**, which
   proves the pipeline's logic (guardrails, retrieval, verification, repair,
   fallback) is correct and reproducible, but it does not test how a real
-  Claude model actually behaves on novel phrasing -- that would require a
+  Gemini model actually behaves on novel phrasing -- that would require a
   separate, real-API integration check.
 - **The 36-song catalog** (inherited from the original project) keeps the
   system easy to reason about and test, at the cost of thin results for rare
@@ -831,7 +831,7 @@ New in VibeMatch AI:
 - The system does not currently ask a genuine follow-up question when
   confidence is low; it proceeds with a warning rather than pausing for
   clarification.
-- Interactive mode requires a live Anthropic API key and network access; it is
+- Interactive mode requires a live Gemini API key and network access; it is
   the one part of the system not covered by the offline test suite or the
   reliability evaluator.
 
@@ -871,7 +871,7 @@ reviewed, tested, and made the final implementation decisions myself.
 ## Future Improvements
 
 - Add a real, network-gated integration test that exercises the live
-  Anthropic API on a small sample of requests, to validate prompt quality that
+  Gemini API on a small sample of requests, to validate prompt quality that
   the offline `FakeAIClient` suite cannot cover.
 - Support genuine multi-turn clarification: when confidence is low, ask the
   user a specific follow-up question instead of only attaching a warning.

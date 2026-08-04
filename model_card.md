@@ -354,7 +354,7 @@ Using this system responsibly means:
 - Reviewing the reliability evaluation results (`evaluation/`) and the test
   suite before trusting any change to the guardrails, verifier, or scoring
   weights.
-- Keeping the `ANTHROPIC_API_KEY` out of version control (`.env` is
+- Keeping the `GEMINI_API_KEY` out of version control (`.env` is
   git-ignored) and never adding it to a prompt, log statement, or committed
   file.
 - Verifying claims about the system's behavior by running the actual code
@@ -394,6 +394,6 @@ running the real code and inspecting the real output is.
    lightweight trained classifier for topicality/injection detection, and a
    more semantic check for genre/mood conflicts in the verifier, would close
    the gaps described in Limitations and Biases above.
-5. **Add a real, network-gated integration test** against the live Anthropic
+5. **Add a real, network-gated integration test** against the live Gemini
    API for a small sample of requests, to validate prompt quality that the
    offline `FakeAIClient` test suite cannot cover on its own.
