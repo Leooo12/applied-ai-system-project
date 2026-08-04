@@ -13,7 +13,7 @@ free-form strings.
 Safety is built in:
 * Fields whose name looks like a secret (api_key, token, password, ...) are
   replaced with "[REDACTED]".
-* Any value containing an API-key-shaped token (e.g. `sk-...`) is scrubbed, so a
+* Any value containing an API-key-shaped token (e.g. `sk-...` or `AIzaSy...`) is scrubbed, so a
   secret can't leak through an exception message.
 * We log lengths/counts rather than raw user text, to avoid storing unnecessary
   personal information.
@@ -36,9 +36,9 @@ _SENSITIVE_KEY_SUBSTRINGS = (
     "authorization", "auth_token", "env",
 )
 
-# Values shaped like an Anthropic-style key/token get scrubbed even inside prose
-# (for example, if an exception message happened to include one).
-_TOKEN_PATTERN = re.compile(r"\bsk-[A-Za-z0-9\-_]{6,}\b")
+# Values shaped like common provider keys get scrubbed even inside prose (for
+# example, if an exception message happens to include one).
+_TOKEN_PATTERN = re.compile(r"\b(?:sk-|AIzaSy)[A-Za-z0-9\-_]{6,}\b")
 
 REDACTED = "[REDACTED]"
 

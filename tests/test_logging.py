@@ -60,6 +60,15 @@ def test_key_shaped_tokens_are_scrubbed_from_values():
     assert REDACTED in payload["message"]
 
 
+def test_gemini_key_shaped_tokens_are_scrubbed_from_values():
+    logger = get_logger("vibematch.test")
+    payload = log_event(
+        logger, "error", message="failed using key AIzaSyABC123XYZ now"
+    )
+    assert "AIzaSyABC123XYZ" not in payload["message"]
+    assert REDACTED in payload["message"]
+
+
 def test_safe_error_message_scrubs_secrets():
     msg = safe_error_message(ValueError("bad token sk-DEADBEEF99 supplied"))
     assert "sk-DEADBEEF99" not in msg
