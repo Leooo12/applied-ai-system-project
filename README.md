@@ -316,7 +316,18 @@ applied-ai-system-project/
 
    Then open `.env` and fill in your real `GEMINI_API_KEY` (create one in
    [Google AI Studio](https://aistudio.google.com/app/apikey)). `.env` is
-   git-ignored, so your key is never committed.
+   git-ignored, so your key is never committed. Before starting interactive
+   mode, load those values into your current shell (the app reads process
+   environment variables; it does not auto-load `.env`):
+
+   ```bash
+   set -a
+   source .env
+   set +a
+   ```
+
+   On Windows, set `GEMINI_API_KEY` in the active PowerShell or Command Prompt
+   session instead.
 
 ## Environment Variables
 
