@@ -336,7 +336,7 @@ Documented in `.env.example`, with no real secrets committed:
 | Variable | Required | Purpose | Default |
 |---|---|---|---|
 | `GEMINI_API_KEY` | Yes, for interactive mode | Authenticates with the Gemini API. The production AI client refuses to start without it. | -- |
-| `GEMINI_MODEL` | No | Which Gemini model to use | `gemini-2.5-flash` |
+| `GEMINI_MODEL` | No | Which Gemini model to use | `gemini-3.5-flash-lite` |
 | `VIBEMATCH_MAX_TOKENS` | No | Maximum tokens the model may return per request | `1024` |
 | `VIBEMATCH_LOG_LEVEL` | No | Python logging level (`DEBUG`, `INFO`, `WARNING`, `ERROR`) | `INFO` |
 
